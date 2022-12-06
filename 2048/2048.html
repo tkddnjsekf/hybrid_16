@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>2048</title>
+    <script type="text/javascript" src="2048.js"></script>
+    <style>
+        .container {
+            width: 468px;
+            margin-top: 30px;
+        }
+
+        .info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .grid {
+            display: flex;
+            flex-wrap: wrap;
+            width: 456px;
+            height: 456px;
+            background-color: aqua;
+            border: 7px solid black;
+            margin-top: 20px;
+        }
+
+        .grid div {
+            width: 100px;
+            height: 100px;
+            margin: 7px;
+            background-color: #afa192;
+            color: #afa192;
+            font-weight: bold;
+            text-align: center;
+            font-size: 60px;
+            line-height: 1.6;
+        }
+
+        .score-container {
+            text-align: center;
+            width: 70px;
+            height: 60px;
+            border-radius: 3px;
+            background-color: gainsboro;
+            color: black;
+        }
+
+        #score {
+            font-size: 30px;
+        }
+
+        .score-title {
+            font-size: 16px;
+        }
+
+        #gamestart {
+            width: 80;
+            height: 60;
+            border-radius: 1px;
+            background-color: beige;
+
+        }
+
+        #regamestart {
+            width: 80;
+            height: 60;
+            border-radius: 1px;
+            background-color: yellow;
+
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="info">
+            <h1>2048</h1>
+            <div class="score-container">
+                <div class="score-title">score</div>
+                <span id="score">0</span>
+            </div>
+            <div class="ct">방향키 입력 횟수</div>
+            <span id="count">0</span>
+        </div>
+        <button id="gamestart">게임 시작</button>
+        <button id="regamestart">재시작</button>
+        <span id="result" style="    position: absolute;
+    top: 341px;
+    left: 38px;
+    z-index: 9999;
+    font-size: 100px;"></span>
+        <div class="grid"></div>
+    </div>
+</body>
+
+</html>
