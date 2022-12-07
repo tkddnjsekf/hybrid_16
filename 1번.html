@@ -1,0 +1,182 @@
+<html>
+
+<head>
+    <title>2048</title>
+    <style>
+        .box {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background-color: #000000;
+            border: 1px solid #000000;
+            margin: 5px;
+            color: white;
+            font-size: 40px;
+            text-align: center;
+            line-height: 90px;
+        }
+
+        #result {
+            position: absolute;
+            top: 200px;
+            left: 10px;
+            font-size: 100px;
+            color: yellow;
+        }
+    </style>
+
+</head>
+
+<body>
+    <script>
+        //box class game cell
+        class Box {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.dom = document.createElement("div");
+                this.dom.setAttribute("class", "box");
+            }
+
+            setAtteribute(key, value) {
+                this.dom.setAttribute(key, value);
+            }
+
+            getAttribute(key) {
+                return this.dom.getAttribute(key);
+            }
+        }
+
+        //div tile memory pool
+        class Pool {
+            constructor() {
+                this.pool = [];
+            }
+
+            //pool collect element
+            Destroy(element) {
+                this.pool.push(element);
+                element.setAtteribute("style", "display:none");
+            }
+
+            //pool spawn element (create or reuse)
+            Spawn(x, y) {
+                var element = this.pool.pop();
+                if (element == null) {
+                    element = new Box(x, y);
+                } else {
+                    element.x = x;
+                    element.y = y;
+                }
+                element.dom.setAttribute("style", "display:block");
+                return element;
+            }
+        }
+
+        //functions
+        function Start() {
+            startButton.setAttribute("style", "display:none");
+            restartButton.setAttribute("style", "display:block");
+            score.setAttribute("style", "display:block");
+            Restart();
+        }
+
+        function Restart() {
+            SetScore(0);
+            commandQueue = [];
+            isCommandFinished = true;
+            var result = document.getElementById("result");
+            result.setAttribute("style", "display:none");
+        }
+
+        function SetScore(score) {
+            document.getElementById("score").innerHTML = "Score: " + score;
+        }
+
+        function calculateAnimation() {
+            var sizeArray = [];
+            var x = 1;
+            //value change 1->0.7->1
+            for (var i = 0; i < 10; i++) {
+                x = easeLinear(i, 1, -0.3, 10);
+                sizeArray.push(x);
+            }
+            for (var i = 0; i < 10; i++) {
+                x = easeLinear(i, 0.7, 0.3, 10);
+                sizeArray.push(x);
+            }
+            return sizeArray;
+        }
+
+        //linear tweening - no easing, no acceleration
+        //t = time, b = begin, c = change, d = duration 
+        function easeLinear(t, b, c, d) {
+            return c * t / d + b;
+        }
+
+        var bounceAnimation = null;
+        var bounceFrame = 0;
+        function bounceDOM(element) {
+            bounceFrame = 0;
+            bounceAnimation = setInterval(
+                () => {
+                    for (var i = 0; i < this.boxes.length; i++) {
+                        this.boxes[i].setAtteribute("style",
+                            this.boxes[i].getAttribute("style") + ";"
+                            + "transform: Scale(" + size[this.animationTime] + ")");
+                    }
+                    if (bounceFrame >= 19) {
+                        clearInterval(bounceAnimation);
+                        bounceAnimation = null;
+                        bounceFrame = 0;
+                    }
+                }, 16
+            )
+        }
+
+        function WinPopup() {
+            var result = document.getElementById("result");
+            result.innerHTML = "You Win!";
+            result.setAttribute("style", "display:block");
+        }
+
+        function LosePopup() {
+            var result = document.getElementById("result");
+            result.innerHTML = "Gameover!";
+            result.setAttribute("style", "display:block");
+        }
+
+        //init
+        var commandQueue = [];
+        var isCommandFinished = true;
+        //arrow key binding
+        document.addEventListener("keydown", (e) => {
+        });
+
+        //init DOM code
+        var body = document.getElementsByTagName("body")[0];
+
+        var startButton = document.createElement("button");
+        startButton.setAttribute("onclick", "Start()");
+        startButton.innerHTML = "Start";
+        body.appendChild(startButton);
+
+        var restartButton = document.createElement("button");
+        restartButton.setAttribute("onclick", "Restart()");
+        restartButton.setAttribute("style", "display:none");
+        restartButton.innerHTML = "Restart";
+        body.appendChild(restartButton);
+
+        var score = document.createElement("div");
+        score.innerHTML = "Score: 0";
+        score.id = "score";
+        body.appendChild(score);
+
+        var result = document.createElement("div");
+        result.id = "result";
+        result.setAttribute("style", "display:none");
+        body.appendChild(result);
+    </script>
+</body>
+
+</html>
