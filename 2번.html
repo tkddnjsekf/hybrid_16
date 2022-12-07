@@ -1,0 +1,571 @@
+<html>
+
+<head>
+    <title>2048</title>
+    <style>
+        .map {
+            position: relative;
+            width: 400px;
+            height: 400px;
+        }
+
+        .box {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background-color: #000000;
+            border: 1px solid #000000;
+            margin: 5px;
+            color: white;
+            font-size: 40px;
+            text-align: center;
+            line-height: 90px;
+        }
+
+        #result {
+            position: absolute;
+            top: 200px;
+            left: 10px;
+            font-size: 100px;
+            color: yellow;
+        }
+    </style>
+
+</head>
+
+<body>
+    <script>
+        //box class game cell
+        class Box {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.dom = document.createElement("div");
+                this.dom.setAttribute("class", "box");
+            }
+
+            setAtteribute(key, value) {
+                this.dom.setAttribute(key, value);
+            }
+
+            getAttribute(key) {
+                return this.dom.getAttribute(key);
+            }
+        }
+
+        //div tile memory pool
+        class Pool {
+            constructor() {
+                this.pool = [];
+            }
+
+            //pool collect element
+            Destroy(element) {
+                this.pool.push(element);
+                element.setAtteribute("style", "display:none");
+            }
+
+            //pool spawn element (create or reuse)
+            Spawn(x, y) {
+                var element = this.pool.pop();
+                if (element == null) {
+                    element = new Box(x, y);
+                } else {
+                    element.x = x;
+                    element.y = y;
+                }
+                element.dom.setAttribute("style", "display:block");
+                return element;
+            }
+        }
+
+        //map class
+        class Map {
+            constructor() {
+                //init pool
+                //last move succeed for insert new block
+
+                //non blocking animation
+                this.bounceAnimationTime = 0;
+                this.bounceAnimationInterval = null;
+
+                this.lastMoveSucceed = false;
+                this.isGameover = false;
+                this.isWin = false;
+                this.isStart = false;
+                this.pool = new Pool()
+                this.animationInterval = null;
+                this.animationTime = 0;
+                this.dom = document.createElement("div");
+                this.dom.setAttribute("class", "map");
+                this.needBounce = [];
+                this.boxes = [];
+                this.boxesData = [];
+                for (var i = 0; i < 4; i++) {
+                    var tmp = ["", "", "", ""];
+                    this.boxesData.push(tmp);
+                }
+                //background
+                for (var i = 0; i < 4; i++) {
+                    for (var j = 0; j < 4; j++) {
+                        var box = this.pool.Spawn(999, 999);
+                        box.dom.innerHTML = "";
+                        box.dom.setAttribute("style", "left:" + (i * 110) + "px;top:" + (j * 110) + "px;z-index:-1;");
+                        this.dom.appendChild(box.dom);
+                    }
+                }
+            }
+
+            GetDOM() {
+                return this.dom;
+            }
+
+            InsertNewBlock() {
+                if (this.animationInterval != null) {
+                    return;
+                }
+                var blankIndexes = [];
+                for (var i = 0; i < 4; i++) {
+                    for (var j = 0; j < 4; j++) {
+                        if (this.boxesData[i][j] == "") {
+                            blankIndexes.push([j, i]);
+                        }
+                    }
+                }
+                //shuffle
+                for (var i = 0; i < blankIndexes.length; i++) {
+                    var index = Math.floor(Math.random() * blankIndexes.length);
+                    var index2 = Math.floor(Math.random() * blankIndexes.length);
+                    var temp = blankIndexes[index];
+                    blankIndexes[index] = blankIndexes[index2];
+                    blankIndexes[index2] = temp;
+                }
+                if (blankIndexes.length == 0) {
+                    this.isGameover = true;
+                    this.isStart = false;
+                    this.isWin = false;
+                } else {
+                    if (blankIndexes.length >= 1) {
+                        this.SpawnBlock(blankIndexes[0]);
+                    }
+                }
+                isCommandFinished = true;
+            }
+
+            //spawn a new block (coord)
+            SpawnBlock(coord) {
+                var x = coord[0];
+                var y = coord[1];
+                this.boxesData[y][x] =
+                    Math.floor(Math.random() * 2)
+                        == 1 ? 4 : 2;
+                this.needBounce.push([x, y]);
+            }
+
+            //animation
+            Animate(move) {
+                if (this.animationInterval != null) {
+                    clearInterval(this.animationInterval);
+                }
+                //calculate animation
+                //start to end;
+                // [[x,y,x2,y2], ...] = 1 animation
+                var animationSet = [];
+
+                var dx = 0;
+                var dy = 0;
+                switch (move) {
+                    case "up":
+                        dx = 0;
+                        dy = -1;
+                        break;
+                    case "down":
+                        dx = 0;
+                        dy = 1;
+                        break;
+                    case "left":
+                        dx = -1;
+                        dy = 0;
+                        break;
+                    case "right":
+                        dx = 1;
+                        dy = 0;
+                        break;
+                }
+
+                //make animation paths
+
+                //indexmap = start index -> dest index
+                var indexMap = [];
+                for (var i = 0; i < 4; i++) {
+                    var tmp = []
+                    for (var j = 0; j < 4; j++) {
+                        tmp.push(i * 4 + j);
+                    }
+                    indexMap.push(tmp);
+                }
+
+                //combineMap = is combined or not
+                var combineMap = [];
+                for (var i = 0; i < 4; i++) {
+                    var tmp = []
+                    for (var j = 0; j < 4; j++) {
+                        tmp.push(false);
+                    }
+                    combineMap.push(tmp);
+                }
+                this.lastMoveSucceed = false;
+
+                //before move boxesData
+                var before = JSON.parse(JSON.stringify(this.boxesData));
+                for (var loop = 0; loop < 3; loop++) {
+                    for (var i = 0; i < 4; i++) {
+                        for (var j = 0; j < 4; j++) {
+                            var x = j;
+                            var y = i;
+                            var x2 = x + dx;
+                            var y2 = y + dy;
+                            if (x2 >= 0 && x2 < 4 && y2 >= 0 && y2 < 4) {
+                                var isCombine = (this.boxesData[y][x] != "" && this.boxesData[y][x] == this.boxesData[y2][x2]);
+                                //prevent combine chain
+                                if (combineMap[y2][x2] == true) {
+                                    isCombine = false;
+                                }
+                                if (
+                                    (this.boxesData[y][x] != "")
+                                    &&
+                                    ((isCombine) || (this.boxesData[y2][x2] == ""))
+                                ) {
+
+                                    this.lastMoveSucceed = true;
+                                    //swap indexmap
+                                    var tmpIndex = indexMap[y][x];
+                                    //remove old position
+                                    indexMap[y][x] = -1;
+                                    //set new position
+                                    indexMap[y2][x2] = tmpIndex;
+
+                                    //animationPath.push([x, y, x2, y2]);
+                                    this.boxesData[y2][x2] = isCombine ?
+                                        parseInt(this.boxesData[y2][x2]) * 2
+                                        :
+                                        this.boxesData[i][j];
+                                    this.boxesData[i][j] = "";
+                                    if (isCombine) {
+                                        combineMap[y2][x2] = true;
+                                        this.needBounce.push([x2, y2]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                var animationPath = []
+                //make animationPath
+                for (var i = 0; i < 4; i++) {
+                    for (var j = 0; j < 4; j++) {
+                        var index = indexMap[i][j];
+                        var x = index % 4;
+                        var y = Math.floor(index / 4);
+                        if (index != -1 && before[y][x] != "") {
+                            var x2 = j;
+                            var y2 = i;
+                            animationPath.push([x, y, x2, y2]);
+                        }
+                    }
+                }
+                animationSet.push(animationPath);
+                //play animation
+                this.animationTime = 0;
+                this.animationInterval =
+                    setInterval(() => {
+                        this.PlayMoveAnimation(animationSet,
+                            () => {
+                                isCommandFinished = true;
+                                //callback
+                            })
+                    }, 16);
+            }
+
+            PlayMoveAnimation(animationSet, callback) {
+                this.animationTime++;
+                //16ms = 1 frame
+                //1set = 10 frames
+                var frame = this.animationTime;
+                if (frame >= animationSet.length * 10) {
+                    clearInterval(this.animationInterval);
+                    this.animationInterval = null;
+                    isCommandFinished = true;
+                    callback();
+                    return;
+                } else {
+                    //play animation
+                    var set = Math.floor(frame / 10); //1,2,3..,10 frame = 1 set
+                    var setFrame = frame % 10;//set frame = 0,1,2,3,4,5,6,7,8,9
+                    var animationPath = animationSet[set];
+                    for (var i = 0; i < animationPath.length; i++) {
+                        var x = animationPath[i][0];
+                        var y = animationPath[i][1];
+                        var x2 = animationPath[i][2];
+                        var y2 = animationPath[i][3];
+                        var startPixel = [x * 110, y * 110];
+                        var endPixel = [x2 * 110, y2 * 110];
+                        var nowPixel = [startPixel[0] + (endPixel[0] - startPixel[0]) * (setFrame / 10), startPixel[1] + (endPixel[1] - startPixel[1]) * (setFrame / 10)];
+                        var box = null;
+
+                        //linear interpolation animation
+                        for (var j = 0; j < this.boxes.length; j++) {
+                            if (this.boxes[j].x == x && this.boxes[j].y == y) {
+                                box = this.boxes[j];
+                                box.dom.setAttribute("style", "left:" + (nowPixel[0]) + "px;top:" + (nowPixel[1]) + "px;");
+                            }
+                        }
+                    }
+                }
+            }
+
+            //move the tile (update) with bounce effect
+            Compute() {
+                for (var i = 0; i < this.boxes.length; i++) {
+                    this.pool.Destroy(this.boxes[i]);
+                }
+                this.boxes = [];
+                for (var i = 0; i < 4; i++) {
+                    for (var j = 0; j < 4; j++) {
+                        if (this.boxesData[i][j] == "") {
+                            continue;
+                        }
+                        var box = this.pool.Spawn(j, i);
+                        box.dom.innerHTML = this.boxesData[i][j];
+                        box.dom.setAttribute("style", "left:" + (j * 110) + "px;top:" + (i * 110) + "px;");
+                        this.dom.appendChild(box.dom);
+                        this.boxes.push(box)
+                    }
+                }
+
+                var safe = false;
+                for (var i = 0; i < 4; i++) {
+                    for (var j = 0; j < 4; j++) {
+                        if (this.boxesData[i][j] != "") {
+                            if (this.boxesData[i][j] >= 2048) {
+                                this.isStart = false;
+                                this.isGameover = true;
+                                this.isWin = true;
+                            }
+                        } else {
+                            safe = true;
+                        }
+                    }
+                }
+                if (safe == false) {
+                    this.isGameover = true;
+                    this.isStart = false;
+                    this.isWin = false;
+                }
+
+                //play bounce animation
+                if (this.needBounce.length > 0) {
+                    this.bounceAnimationTime = 0;
+                    if (this.bounceAnimationInterval != null) {
+                        clearInterval(this.bounceAnimationInterval);
+                        this.needBounce.forEach(
+                            (item) => {
+                                var x = item[0];
+                                var y = item[1];
+                                for (var i = 0; i < this.boxes.length; i++) {
+                                    if (this.boxes[i].x == x && this.boxes[i].y == y) {
+                                        //reset scale to 1x
+                                        this.boxes[i].setAtteribute("style",
+                                            this.boxes[i].getAttribute("style") + ";"
+                                            + "transform: Scale(" + 1 + ")");
+                                    }
+                                }
+                            }
+                        )
+                        this.needBounce = [];
+                    }
+                    this.bounceAnimationInterval =
+                        setInterval(() => {
+                            this.bounceAnimationTime++;
+                            var size = calculateAnimation();
+                            this.needBounce.forEach(
+                                (item) => {
+                                    var x = item[0];
+                                    var y = item[1];
+                                    for (var i = 0; i < this.boxes.length; i++) {
+                                        if (this.boxes[i].x == x && this.boxes[i].y == y) {
+                                            //use transform scale to make bounce animation
+                                            this.boxes[i].setAtteribute("style",
+                                                this.boxes[i].getAttribute("style") + ";"
+                                                + "transform: Scale(" + size[this.animationTime] + ")");
+                                        }
+                                    }
+                                }
+                            )
+                            if (this.animationTime >= 20 - 1) {
+                                //end animation
+                                clearInterval(this.bounceAnimationInterval);
+                                this.animationInterval = null;
+                                this.needBounce = [];
+                                this.animationTime = 0;
+                            }
+                        }, 16);
+                }
+                isCommandFinished = true;
+            }
+
+            Reset() {
+                this.needBounce = [];
+                this.isGameover = false;
+                this.isWin = false;
+                clearInterval(this.animationInterval);
+                this.animationInterval = null;
+                this.boxesData = [];
+                for (var i = 0; i < 4; i++) {
+                    var tmp = ["", "", "", ""];
+                    this.boxesData.push(tmp);
+                }
+                this.InsertNewBlock();
+                this.InsertNewBlock();
+                this.Compute();
+                this.isStart = true;
+            }
+
+            CalculateScore() {
+                //sum all tile
+                var score = 0;
+                for (var i = 0; i < 4; i++) {
+                    for (var j = 0; j < 4; j++) {
+                        if (this.boxesData[i][j] != "") {
+                            score += this.boxesData[i][j];
+                        }
+                    }
+                }
+                isCommandFinished = true;
+                return score;
+            }
+        }
+
+        //functions
+        function Start() {
+            startButton.setAttribute("style", "display:none");
+            restartButton.setAttribute("style", "display:block");
+            score.setAttribute("style", "display:block");
+            mapDOM.setAttribute("style", "display:block");
+            Restart();
+        }
+
+        function Restart() {
+            map.Reset();
+            SetScore(0);
+            commandQueue = [];
+            isCommandFinished = true;
+            var result = document.getElementById("result");
+            result.setAttribute("style", "display:none");
+        }
+
+        function SetScore(score) {
+            document.getElementById("score").innerHTML = "Score: " + score;
+        }
+
+        function calculateAnimation() {
+            var sizeArray = [];
+            var x = 1;
+            //value change 1->0.7->1
+            for (var i = 0; i < 10; i++) {
+                x = easeLinear(i, 1, -0.3, 10);
+                sizeArray.push(x);
+            }
+            for (var i = 0; i < 10; i++) {
+                x = easeLinear(i, 0.7, 0.3, 10);
+                sizeArray.push(x);
+            }
+            return sizeArray;
+        }
+
+        //linear tweening - no easing, no acceleration
+        //t = time, b = begin, c = change, d = duration 
+        function easeLinear(t, b, c, d) {
+            return c * t / d + b;
+        }
+
+        var bounceAnimation = null;
+        var bounceFrame = 0;
+        function bounceDOM(element) {
+            bounceFrame = 0;
+            bounceAnimation = setInterval(
+                () => {
+                    for (var i = 0; i < this.boxes.length; i++) {
+                        this.boxes[i].setAtteribute("style",
+                            this.boxes[i].getAttribute("style") + ";"
+                            + "transform: Scale(" + size[this.animationTime] + ")");
+                    }
+                    if (bounceFrame >= 19) {
+                        clearInterval(bounceAnimation);
+                        bounceAnimation = null;
+                        bounceFrame = 0;
+                    }
+                }, 16
+            )
+        }
+
+        function WinPopup() {
+            var result = document.getElementById("result");
+            result.innerHTML = "You Win!";
+            result.setAttribute("style", "display:block");
+        }
+
+        function LosePopup() {
+            var result = document.getElementById("result");
+            result.innerHTML = "Gameover!";
+            result.setAttribute("style", "display:block");
+        }
+
+        //init
+        var map = new Map();
+        var commandQueue = [];
+        var isCommandFinished = true;
+        //arrow key binding
+        document.addEventListener("keydown", (e) => {
+            //prevent too much command
+            if (map.isGameover == true) {
+                if (map.isWin) {
+                    WinPopup();
+                } else {
+                    LosePopup();
+                }
+                map.isGameover = false;
+                return;
+            }
+        });
+
+        //init DOM code
+        var body = document.getElementsByTagName("body")[0];
+
+        var startButton = document.createElement("button");
+        startButton.setAttribute("onclick", "Start()");
+        startButton.innerHTML = "Start";
+        body.appendChild(startButton);
+
+        var restartButton = document.createElement("button");
+        restartButton.setAttribute("onclick", "Restart()");
+        restartButton.setAttribute("style", "display:none");
+        restartButton.innerHTML = "Restart";
+        body.appendChild(restartButton);
+
+        var score = document.createElement("div");
+        score.innerHTML = "Score: 0";
+        score.id = "score";
+        body.appendChild(score);
+
+        var mapDOM = map.GetDOM();
+        body.appendChild(mapDOM);
+
+        var result = document.createElement("div");
+        result.id = "result";
+        result.setAttribute("style", "display:none");
+        body.appendChild(result);
+    </script>
+</body>
+
+</html>
